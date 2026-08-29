@@ -7,6 +7,7 @@ parameters:
     image_directory: '%kernel.project_dir%/public/images'
     email_from: 'sebastienpetit27330@gmail.com'
     frontend_url: '%env(FRONTEND_URL)%'
+    stripe_secret_key: '%env(STRIPE_SECRET_KEY)%'
 
 services:
     # default configuration for services in *this* file
@@ -31,6 +32,10 @@ services:
     App\Services\MailerProvider:
         arguments:
             $emailFrom: '%email_from%'
+
+    App\Controller\User\PaymentController:
+        arguments:
+            $stripeSecretKey: '%stripe_secret_key%'
 
     # add more service definitions when explicit configuration is needed
     # please note that last definitions always *replace* previous ones

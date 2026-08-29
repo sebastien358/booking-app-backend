@@ -39,6 +39,7 @@ security:
         - { path: ^/api/user/request-password, roles: PUBLIC_ACCESS }
         - { path: ^/api/user/reset-password, roles: PUBLIC_ACCESS }
         - { path: ^/api/appointment/user/list', roles: ROLE_USER }
+        - { path: ^/api/user/payment', roles: ROLE_USER }
 
     role_hierarchy:
         ROLE_ADMIN: ROLE_ADMIN

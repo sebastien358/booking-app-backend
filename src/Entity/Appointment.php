@@ -10,6 +10,12 @@ use Symfony\Component\Serializer\Attribute\Groups;
 #[ORM\HasLifecycleCallbacks]
 class Appointment
 {
+    // Payment
+
+    public const STATUS_PAID = 'Paid';
+    public const STATUS_FAILED  = 'Failed';
+    public const STATUS_CANCELLED = 'cancelled';
+
     #[ORM\Id]
     #[ORM\GeneratedValue]
     #[ORM\Column]

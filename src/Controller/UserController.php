@@ -135,7 +135,7 @@ class UserController extends AbstractController
 
             $userExist = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']]);
             if ($userExist) {
-                return $this->json(['type' => 'EMAIL_ALREADY_EXISTS', 'message' => 'Un compte existe déjà avec cet email'], Response::HTTP_CONFLICT);
+                return $this->json(['type' => 'EMAIL_ALREADY_EXISTS', 'message' => 'Un compte existe déjà avec cet email.'], Response::HTTP_CONFLICT);
             }
 
             $user = new User();
