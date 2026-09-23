@@ -47,7 +47,7 @@ final class PaymentController extends AbstractController
 
             $service = $this->entityManager->getRepository(Service::class)->find($serviceId);
             if (!$service) {
-                return $this->json(['error' => 'Service not found'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Service not found'], Response::HTTP_BAD_REQUEST);
             }
 
             $price = $service->getPrice();
@@ -102,7 +102,7 @@ final class PaymentController extends AbstractController
                 return $this->json(['type' => 'REQUIRES_ACTION', 'clientSecret' => $paymentIntent->client_secret], Response::HTTP_OK);
             }
 
-            return $this->json(['type' => 'ERROR_PAYMENT', 'message' => 'Paiement refusé'], Response::HTTP_CONFLICT);
+            return $this->json(['type' => 'ERROR_PAYMENT', 'message' => 'Paiement refusé'], Response::HTTP_BAD_REQUEST);
         } catch (\Throwable $e) {
             $this->logger->error('Le paiement a échoué : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);

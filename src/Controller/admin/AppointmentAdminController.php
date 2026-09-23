@@ -25,20 +25,25 @@ class AppointmentAdminController extends AbstractController
         $this->logger = $logger;
     }
 
-    #[IsGranted("ROLE_USER")]
+    #[IsGranted("ROLE_ADMIN")]
     #[Route('/api/admin/appointment/list', methods: ['GET'])]
     public function list(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $limit = $request->query->get('limit');
-            $offset = $request->query->get('offset');
+            $limit = (int) $request->query->get('limit');
+            $offset = (int) $request->query->get('offset');
+
             $appointments = $this->entityManager->getRepository(Appointment::class)->findAllAppointments($limit, $offset);
 
-            $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments']]);
-            return new JsonResponse($dataAppointments);
+            $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments'],
+                'circular_reference_handlers' => function ($object) {
+                    return $object->getId();
+                }
+            ]);
+            return $this->json($dataAppointments, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur liste des rendez-vous clients : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -47,14 +52,20 @@ class AppointmentAdminController extends AbstractController
     public function search(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $search = $request->query->get('search');
+            $search = trim((string) $request->query->get('search'));
+            $search = trim($search);
+
+            if ($search === '') {
+                return $this->json([], Response::HTTP_OK);
+            }
+
             $appointments = $this->entityManager->getRepository(Appointment::class)->findAllAppointmentsSearch($search);
 
             $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments']]);
-            return new JsonResponse($dataAppointments, Response::HTTP_OK);
+            return $this->json($dataAppointments, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur liste des rendez-vous clients : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -98,16 +109,16 @@ class AppointmentAdminController extends AbstractController
 
             $appointment = $this->entityManager->getRepository(Appointment::class)->find($id);
             if (!$appointment) {
-                return new JsonResponse(['error' => 'Rendez-vous introuvable'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Rendez-vous introuvable'], Response::HTTP_NOT_FOUND);
             }
 
             $this->entityManager->remove($appointment);
             $this->entityManager->flush();
 
-            return new JsonResponse(null, Response::HTTP_OK);
+            return $this->json(['message' => 'Le témoignage a été supprimé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur du details d\'un rendez-vous : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

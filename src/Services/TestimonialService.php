@@ -2,11 +2,20 @@
 
 namespace App\Services;
 
-use App\Entity\Testimonial;
-use Symfony\Component\HttpFoundation\JsonResponse;
+use App\Entity\Picture;
+use Doctrine\ORM\EntityManagerInterface;
 
 class TestimonialService
 {
+    private EntityManagerInterface $entityManager;
+    private UploadFileService $uploadFileService;
+
+    public function __construct(EntityManagerInterface $entityManager, UploadFileService $uploadFileService)
+    {
+        $this->entityManager = $entityManager;
+        $this->uploadFileService = $uploadFileService;
+    }
+
     public function testimonialDisplay($testimonials, $request, $serializer)
     {
 
@@ -15,7 +24,6 @@ class TestimonialService
         }];
 
         $urlImage = $request->getSchemeAndHttpHost() . '/images/';
-
 
         if (!is_array($testimonials)) {
             $data = $serializer->normalize($testimonials, 'json', $elems);
@@ -36,5 +44,24 @@ class TestimonialService
         }
 
         return $dataList;
+    }
+
+    public function testimonialImage($image, $testimonial) {
+        if (!$image) {
+            return null;
+        };
+
+        if ($image->getSize() > 5 * 1024 * 1024) {
+            throw new \Exception('La taille de l\'image est trop grande'. $image->getClientOriginalName());
+        }
+
+        $picture = new Picture();
+        $newFilename = $this->uploadFileService->upload($image);
+
+        $picture->setFilename($newFilename);
+        $picture->setTestimonial($testimonial);
+        $testimonial->setPicture($picture);
+
+        $this->entityManager->persist($picture);
     }
 }

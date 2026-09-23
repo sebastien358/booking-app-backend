@@ -2,12 +2,10 @@
 
 namespace App\Controller;
 
-use App\Entity\Picture;
 use App\Entity\Testimonial;
 use App\Form\TestimonialType;
 use App\Services\MailerProvider;
 use App\Services\TestimonialService;
-use App\Services\UploadFileService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,17 +20,15 @@ use Symfony\Component\Serializer\SerializerInterface;
 class TestimonialController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
-    private UploadFileService $uploadFileService;
     private TestimonialService $testimonialService;
     private MailerProvider $mailerProvider;
     private LoggerInterface $logger;
 
     public function __construct(
-        EntityManagerInterface $entityManager, UploadFileService $uploadFileService,
-        TestimonialService $testimonialService, MailerProvider $mailerProvider, LoggerInterface $logger)
-    {
+        EntityManagerInterface $entityManager, TestimonialService $testimonialService,
+        MailerProvider $mailerProvider, LoggerInterface $logger
+    ) {
         $this->entityManager = $entityManager;
-        $this->uploadFileService = $uploadFileService;
         $this->testimonialService = $testimonialService;
         $this->mailerProvider = $mailerProvider;
         $this->logger = $logger;
@@ -62,24 +58,18 @@ class TestimonialController extends AbstractController
             $testimonial = new Testimonial();
 
             $form = $this->createForm(TestimonialType::class, $testimonial);
-            $form->submit($request->request->all(), false);
+
+            $data = $request->request->all();
+            $form->submit($data, false);
 
             if (!$form->isSubmitted() || !$form->isValid()) {
                 $errors = $this->getErrorMessages($form);
-                return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+                return $this->json(['errors' => $errors], Response::HTTP_BAD_REQUEST);
             }
 
-            $image = $request->files->get('filename') ?? null;
-            if ($image) {
-                $picture = new Picture();
-                $newFilename = $this->uploadFileService->upload($image);
+            $image = $request->files->get('image') ?? null;
 
-                $picture->setFilename($newFilename);
-                $picture->setTestimonial($testimonial);
-                $testimonial->setPicture($picture);
-
-                $this->entityManager->persist($picture);
-            }
+            $this->testimonialService->testimonialImage($image, $testimonial);
 
             $this->entityManager->persist($testimonial);
             $this->entityManager->flush();

@@ -185,8 +185,6 @@ class AppointmentController extends AbstractController
     public function create(Request $request): JsonResponse
     {
         try {
-            // ✅ USER CONNECTED
-
             $user = $this->getUser();
 
             if (!$user) {
@@ -242,8 +240,8 @@ class AppointmentController extends AbstractController
 
             $appointment = new Appointment();
 
-            $appointment->setStartAt($startUtc); // UTC
-            $appointment->setEndAt($endUtc);     // UTC
+            $appointment->setStartAt($startUtc);
+            $appointment->setEndAt($endUtc);
             $appointment->setService($service);
             $appointment->setStaff($staff);
             $appointment->setFirstname($user->getFirstname());
