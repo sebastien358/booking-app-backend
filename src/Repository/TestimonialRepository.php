@@ -17,11 +17,21 @@ class TestimonialRepository extends ServiceEntityRepository
 
     }
 
+    public function findAllAdminTestimonials(int $offset, int $limit)
+    {
+        return $this->createQueryBuilder('t')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->orderBy('t.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findAllTestimonials(int $limit, int $offset)
     {
         return $this->createQueryBuilder('t')
-//            ->where('t.is_published = :is_published')
-//            ->setParameter('is_published', true)
+            ->where('t.is_published = :is_published')
+            ->setParameter('is_published', true)
             ->setFirstResult($offset)
             ->setMaxResults($limit)
             ->orderBy('t.id', 'ASC')

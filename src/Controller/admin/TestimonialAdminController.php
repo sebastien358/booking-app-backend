@@ -39,10 +39,11 @@ class TestimonialAdminController extends AbstractController
     public function index(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $limit = $request->query->get('limit');
-            $offset = $request->query->get('offset');
+            $offset = trim((int) $request->query->get('offset'));
+            $limit = trim((int) $request->query->get('limit'));
 
-            $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonials($limit, $offset);
+            $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllAdminTestimonials($offset, $limit);
+
             $testimonials = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
 
             return new JsonResponse($testimonials, Response::HTTP_OK);
@@ -56,7 +57,8 @@ class TestimonialAdminController extends AbstractController
     public function search(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $search = $request->query->get('search');
+            $search = trim((string) $request->query->get('search'));
+
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonialSearch($search);
 
             $dataTestimonials = $serializer->normalize($testimonials, 'json', ['groups' => 'testimonials']);
@@ -77,12 +79,16 @@ class TestimonialAdminController extends AbstractController
                 return $this->json(['error' => 'Erreur de la récupération d\'un témoignage'], Response::HTTP_NOT_FOUND);
             }
 
+            $testimonials->setIsRead(true);
+
             $testimonials = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
 
-            return new JsonResponse($testimonials, Response::HTTP_OK);
+            $this->entityManager->flush();
+
+            return $this->json($testimonials, Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -134,7 +140,7 @@ class TestimonialAdminController extends AbstractController
         }
     }
 
-    #[Route('/{id}/toggle', methods: ['POST'])]
+    #[Route('/{id}/toggle', methods: ['PUT'])]
     public function toggle(int $id): JsonResponse
     {
         try {

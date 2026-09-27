@@ -4,6 +4,7 @@ namespace App\Entity;
 
 use App\Repository\TestimonialRepository;
 use Doctrine\ORM\Mapping as ORM;
+use phpDocumentor\Reflection\Types\Boolean;
 use Symfony\Component\Serializer\Attribute\Groups;
 
 #[ORM\Entity(repositoryClass: TestimonialRepository::class)]
@@ -33,9 +34,13 @@ class Testimonial
     #[Groups(['testimonials'])]
     private ?string $message = null;
 
+    #[ORM\Column(nullable: false)]
+    #[Groups(['testimonials'])]
+    private ?bool $is_read = false;
+
     #[ORM\Column(nullable: true)]
     #[Groups(['testimonials'])]
-    private ?bool $is_published = null;
+    private ?bool $is_published = false;
 
     #[ORM\Column(nullable: false)]
     #[Groups(['testimonials'])]
@@ -100,6 +105,18 @@ class Testimonial
     public function setMessage(string $message): static
     {
         $this->message = $message;
+
+        return $this;
+    }
+
+    public function getIsRead(): ?bool
+    {
+        return $this->is_read;
+    }
+
+    public function setIsRead(bool $is_read): static
+    {
+        $this->is_read = $is_read;
 
         return $this;
     }
