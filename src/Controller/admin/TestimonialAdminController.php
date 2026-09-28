@@ -111,8 +111,8 @@ class TestimonialAdminController extends AbstractController
         }
     }
 
-    #[Route('/show/{id}/picture/{pictureId}', methods: ['DELETE'])]
-    public function delete(int $id, int $pictureId): JsonResponse
+    #[Route('/{id}/delete', methods: ['DELETE'])]
+    public function delete(int $id): JsonResponse
     {
         try {
             $testimonial = $this->entityManager->getRepository(Testimonial::class)->find($id);
@@ -120,20 +120,14 @@ class TestimonialAdminController extends AbstractController
                 return $this->json(['error' => 'Erreur de la récupération d\'un témoignage'], Response::HTTP_NOT_FOUND);
             }
 
-            $img = $testimonial->getPicture();
+            $image = $testimonial->getPicture();
 
-            if ($img !== null && $img->getId() !== 0) {
-                if ($img->getId() !== $pictureId) {
-                    return $this->json(['error' => 'Erreur l\'image ne correspond pas au témoignage'], Response::HTTP_NOT_FOUND);
-                }
-                $this->uploadFileService->deleteImg($img->getFilename());
-                $this->entityManager->remove($img);
-            }
+            $this->uploadFileService->removeTestimonialImage($testimonial, $image);
 
             $this->entityManager->remove($testimonial);
             $this->entityManager->flush();
 
-            return $this->json(null, Response::HTTP_OK);
+            return $this->json(['message' => 'Le témoignage a été supprimé'], Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la suppression d\'un témoignage : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
