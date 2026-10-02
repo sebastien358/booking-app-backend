@@ -28,7 +28,7 @@ class ContactController extends AbstractController
         $this->logger = $logger;
     }
 
-    #[Route('/create', methods: ['POST'])]
+    #[Route('/new', methods: ['POST'])]
     public function list(Request $request): JsonResponse
     {
         try {
@@ -41,7 +41,7 @@ class ContactController extends AbstractController
 
             if (!$form->isSubmitted() || !$form->isValid()) {
                 $errors = $this->getErrorMessages($form);
-                return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+                return $this->json(['errors' => $errors], Response::HTTP_BAD_REQUEST);
             }
 
             $body = $this->render('emails/contact-notification.html.twig', [
@@ -56,10 +56,10 @@ class ContactController extends AbstractController
             $this->entityManager->persist($contact);
             $this->entityManager->flush();
 
-            return new JsonResponse(['success' => true, 'message' => 'Contact created'], Response::HTTP_CREATED);
+            return $this->json(['success' => true, 'message' => 'Contact created'], Response::HTTP_CREATED);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des contacts : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

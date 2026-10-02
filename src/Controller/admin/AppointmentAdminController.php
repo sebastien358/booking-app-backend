@@ -30,17 +30,28 @@ class AppointmentAdminController extends AbstractController
     public function list(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $limit = (int) $request->query->get('limit');
             $offset = (int) $request->query->get('offset');
 
             $appointments = $this->entityManager->getRepository(Appointment::class)->findAllAppointments($limit, $offset);
+            $count = $this->entityManager->getRepository(Appointment::class)->findAllCount();
 
             $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments'],
                 'circular_reference_handlers' => function ($object) {
                     return $object->getId();
                 }
             ]);
-            return $this->json($dataAppointments, Response::HTTP_OK);
+
+            return $this->json([
+                'appointments' => $dataAppointments,
+                'count' => (int) $count,
+            ], Response::HTTP_OK);
+
         } catch(\Throwable $e) {
             $this->logger->error('Erreur liste des rendez-vous clients : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -74,6 +85,11 @@ class AppointmentAdminController extends AbstractController
     public function show(int $id, SerializerInterface $serializer): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $appointment = $this->entityManager->getRepository(Appointment::class)->find($id);
             if (!$appointment) {
                 return new JsonResponse(['error' => 'Rendez-vous introuvable'], Response::HTTP_NOT_FOUND);
@@ -102,7 +118,6 @@ class AppointmentAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
-
             if (!$user) {
                 return $this->json(['error' => 'Admin non authentifié'], Response::HTTP_UNAUTHORIZED);
             }
@@ -122,15 +137,14 @@ class AppointmentAdminController extends AbstractController
         }
     }
 
-    #[IsGranted("ROLE_USER")]
+    #[IsGranted("ROLE_ADMIN")]
     #[Route('/api/appointment/delete/{id}/user', methods: ['DELETE'])]
     public function userBookingDelete(Appointment $appointment): JsonResponse
     {
         try {
             $user = $this->getUser();
-
             if (!$user) {
-                return $this->json(['error' => 'Utilisateur non authentifié'], Response::HTTP_UNAUTHORIZED);
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
             }
 
             if ($appointment->getUser() !== $user) {

@@ -45,8 +45,12 @@ class TestimonialAdminController extends AbstractController
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllAdminTestimonials($offset, $limit);
 
             $testimonials = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
+            $count = $this->entityManager->getRepository(Testimonial::class)->testimonialCount();
 
-            return new JsonResponse($testimonials, Response::HTTP_OK);
+            return new JsonResponse([
+                'testimonials' => $testimonials,
+                'count' => (int) $count
+            ], Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);

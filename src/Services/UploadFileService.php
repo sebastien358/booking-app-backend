@@ -18,7 +18,7 @@ class UploadFileService
 
     public function upload(UploadedFile $file)
     {
-        $newFilename = uniqid().'.'.$file->guessExtension();
+        $newFilename = uniqid() . '.' .$file->guessExtension();
         $file->move($this->targetDirectory, $newFilename);
         return $newFilename;
     }

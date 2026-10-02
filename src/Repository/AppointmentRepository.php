@@ -72,6 +72,14 @@ class AppointmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function findAllCount()
+    {
+        return $this->createQueryBuilder('a')
+            ->select('COUNT(a)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     //    /**
     //     * @return Appointment[] Returns an array of Appointment objects
     //     */

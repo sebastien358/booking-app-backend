@@ -30,16 +30,26 @@ class ContactAdminController extends AbstractController
     public function list(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $limit = $request->query->get('limit');
-            $offset = $request->query->get('offset');
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
 
-            $contacts = $this->entityManager->getRepository(Contact::class)->findAllContacts($limit, $offset);
-            $dataContacts = $serializer->normalize($contacts, 'json', ['groups' => 'contacts']);
+            $offset = (int) $request->query->get('offset');
+            $limit = (int) $request->query->get('limit');
 
-            return new JsonResponse($dataContacts, Response::HTTP_OK,);
+            $contacts = $this->entityManager->getRepository(Contact::class)->findAllContacts($offset, $limit);
+
+            $dataContacts = $serializer->normalize($contacts, 'json', ['groups' => ['contacts']]);
+            $count = $this->entityManager->getRepository(Contact::class)->findAllCount();
+
+            return $this->json([
+                    'contacts' => $dataContacts,
+                    'count' => (int) $count
+                ], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des contacts : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -47,15 +57,20 @@ class ContactAdminController extends AbstractController
     public function search(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $search = $request->query->get('search');
-            $contacts = $this->entityManager->getRepository(Contact::class)->findAllContactSearch($search);
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
 
+            $search = trim((string) $request->query->get('search'));
+
+            $contacts = $this->entityManager->getRepository(Contact::class)->findAllContactSearch($search);
             $dataContacts = $serializer->normalize($contacts, 'json', ['groups' => 'contacts']);
 
-            return new JsonResponse($dataContacts, Response::HTTP_OK,);
+            return $this->json($dataContacts, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur search contacts: ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -63,9 +78,14 @@ class ContactAdminController extends AbstractController
     public function show(int $id, SerializerInterface $serializer): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $contact = $this->entityManager->getRepository(Contact::class)->find($id);
             if (!$contact) {
-                return new JsonResponse(['error' => 'Message introuvable'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Message introuvable'], Response::HTTP_NOT_FOUND);
             }
 
             $contact->setIsRead(true);
@@ -73,10 +93,10 @@ class ContactAdminController extends AbstractController
 
             $this->entityManager->flush();
 
-            return new JsonResponse($dataContact, Response::HTTP_OK,);
+            return $this->json($dataContact, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des contacts : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -84,6 +104,11 @@ class ContactAdminController extends AbstractController
     public function delete(int $id): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $contact = $this->entityManager->getRepository(Contact::class)->find($id);
             if (!$contact) {
                 return new JsonResponse(['error' => 'Message introuvable'], Response::HTTP_NOT_FOUND);

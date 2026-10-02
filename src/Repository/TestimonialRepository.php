@@ -49,6 +49,14 @@ class TestimonialRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function testimonialCount()
+    {
+        return $this->createQueryBuilder('t')
+            ->select('count(t.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
     //    /**
     //     * @return Testimonial[] Returns an array of Testimonial objects
     //     */

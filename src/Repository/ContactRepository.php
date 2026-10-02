@@ -16,7 +16,7 @@ class ContactRepository extends ServiceEntityRepository
         parent::__construct($registry, Contact::class);
     }
 
-    public function findAllContacts($limit, $offset)
+    public function findAllContacts($offset, $limit)
     {
         return $this->createQueryBuilder('c')
             ->setFirstResult($offset)
@@ -29,11 +29,19 @@ class ContactRepository extends ServiceEntityRepository
     public function findAllContactSearch(string $search)
     {
         return $this->createQueryBuilder('c')
-            ->where('c.firstname LIKE :search OR c.lastname LIKE :search')
+            ->where('c.firstname LIKE :search OR c.lastname LIKE :search OR c.email LIKE :search')
             ->setParameter('search', '%' . $search . '%')
             ->orderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();
+    }
+
+    public function findAllCount()
+    {
+        return $this->createQueryBuilder('c')
+            ->select('count(c.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
 
