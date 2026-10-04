@@ -191,14 +191,12 @@ class UserController extends AbstractController
     {
         try {
             $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-            $email = $data['email'] ?? null;
-
-            if (!$email) {
+            if (!$data['email'] ) {
                 return $this->json(['error' => 'Email manquant'], Response::HTTP_BAD_REQUEST);
             }
 
-            $userExist = $userRepository->findOneBy(['email' => $email]);
-            if (!$userExist) {
+            $user = $userRepository->findOneBy(['email' => $data['email']]);
+            if (!$user) {
                 return $this->json([
                     'type' => 'ERROR_REQUEST_PASSWORD',
                     'message' => 'Cet email n\'existe pas dans nos données'
@@ -208,13 +206,13 @@ class UserController extends AbstractController
             $token = bin2hex(random_bytes(32));
             $date = new \DateTimeImmutable('+1 hour');
 
-            $userExist->setToken($token);
-            $userExist->setTokenExpire($date);
+            $user->setResetToken($token);
+            $user->setResetTokenExpiresAt($date);
 
             $this->entityManager->flush();
 
-            $url = $this->getParameter('FRONTEND_URL') . '/reset-password/' . $token;
-            $this->sendResetNotification($userExist, $url);
+            $url = $this->getParameter('frontend_url') . '/reset-password/' . $token;
+            $this->sendResetNotification($user, $url);
 
             return $this->json(['message' => 'Un email a été envoyé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
@@ -229,51 +227,54 @@ class UserController extends AbstractController
         try {
             $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
 
-            if (!$data || empty($data['password'])) {
-                return $this->json(['error' => 'Mot de passe requis'], Response::HTTP_BAD_REQUEST);
+            if (empty($data['password'])) {
+                return $this->json(['error' => 'Mot de passe manquant'], Response::HTTP_BAD_REQUEST);
             }
 
             $user = $userRepository->findOneBy(['resetToken' => $token]);
             if (!$user) {
-                return $this->json(['error' => 'Token non valide'], Response::HTTP_FORBIDDEN);
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_BAD_REQUEST);
             }
 
-            $expiresAt = $user->getResetTokenExpiresAt();
+            $delayDate = $user->getResetTokenExpiresAt();
 
-            if (!$expiresAt) {
-                return $this->json(['type' => 'RESET-PASSWORD', 'message' => 'La demande de réinitialisation a expirée'], Response::HTTP_BAD_REQUEST);
+            if (!$delayDate || $delayDate < new \DateTimeImmutable()) {
+                $user->setResetToken(null);
+                $user->setResetTokenExpiresAt(null);
+                $this->entityManager->flush();
+
+                return $this->json([
+                    'type' => 'ERROR_RESET_PASSWORD_EXPIRED',
+                    'message' => 'Ce lien de réinitialisation a expiré'
+                ], Response::HTTP_CONFLICT);
             }
 
-            $datetime = new \DateTimeImmutable();
-
-            if ($expiresAt < $datetime) {
-                return $this->json(['type' => 'RESET-PASSWORD', 'message' => 'La demande de réinitialisation a expirée'], Response::HTTP_CONFLICT);
-            }
-
-            $newPassword = $data['password'];
-            $hashedPassword = $this->passwordHasher->hashPassword($user, $newPassword);
-
+            $hashedPassword = $this->passwordHasher->hashPassword($user, $data['password']);
             $user->setPassword($hashedPassword);
             $user->setResetToken(null);
             $user->setResetTokenExpiresAt(null);
 
             $this->entityManager->flush();
 
-            return $this->json(['message' => 'Mot de passe modifié'], Response::HTTP_OK);
+            return $this->json(['message' => 'Le mot de passe a bien été réiniatilisé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur modification de mot de passe', ['error' => $e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    public function sendResetNotification(User $userExist, string $url): void
+    public function sendResetNotification(User $user, string $url): void
     {
         $body = $this->render('emails/reset-password.html.twig', [
-            'firstname' => $userExist->getFirstname(),
+            'firstname' => $user->getFirstname(),
             'url' => $url,
         ])->getContent();
 
-        $this->mailerProvider->sendEmail($userExist->getEmail(), 'Demande de réinitialisation de mot de passe', $body);
+        $this->mailerProvider->sendEmail(
+            $user->getEmail(),
+            'Demande de réinitialisation de mot de passe',
+            $body
+        );
     }
 
     private function getErrorMessages(FormInterface $form): array
