@@ -217,7 +217,7 @@ class UserController extends AbstractController
             return $this->json(['message' => 'Un email a été envoyé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur verification utilissateur', ['error' => $e->getMessage()]);
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => 'une erreur est survenue'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
@@ -259,7 +259,7 @@ class UserController extends AbstractController
             return $this->json(['message' => 'Le mot de passe a bien été réiniatilisé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur modification de mot de passe', ['error' => $e->getMessage()]);
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => 'Une erreur est survenue'], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

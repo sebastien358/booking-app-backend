@@ -16,7 +16,7 @@ class ServiceRepository extends ServiceEntityRepository
         parent::__construct($registry, Service::class);
     }
 
-    public function findAllServices(int $limit, int $offset)
+    public function findAllServicesLazyLoad($offset, $limit)
     {
         return $this->createQueryBuilder('s')
             ->setFirstResult($offset)
@@ -33,6 +33,14 @@ class ServiceRepository extends ServiceEntityRepository
             ->setParameter('search', '%' . $search . '%')
             ->getQuery()
             ->getResult();
+    }
+
+    public function findAllCount()
+    {
+        return $this->createQueryBuilder('s')
+            ->select('COUNT(s)')
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     //    /**

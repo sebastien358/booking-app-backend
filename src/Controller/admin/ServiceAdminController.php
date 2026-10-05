@@ -33,17 +33,19 @@ class ServiceAdminController extends AbstractController
     public function list(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $offset = (int) $request->query->get('offset', 0);
-            $limit = (int) $request->query->get('limit', 3);
+            $offset = (int) $request->query->get('offset');
+            $limit = (int) $request->query->get('limit');
 
-            if ($limit <= 0 || $offset < 0) {
-                return $this->json(['error' => 'Invalid lazy load parameters'], Response::HTTP_BAD_REQUEST);
-            }
-
-            $services = $this->entityManager->getRepository(Service::class)->findAllServices($limit, $offset);
+            $services = $this->entityManager->getRepository(Service::class)->findAllServicesLazyLoad($offset, $limit);
+            $count = $this->entityManager->getRepository(Service::class)->findAllCount();
 
             $dataServices = $serializer->normalize($services, 'json', ['groups' => ['services', 'categories']]);
-            return $this->json($dataServices, Response::HTTP_OK);
+
+            return $this->json([
+                'services' => $dataServices,
+                'count' => (int) $count
+            ], Response::HTTP_OK);
+
         } catch(\Throwable $e) {
             $this->logger->error('Admin service error : ', ['message' => $e->getMessage()]);
             return $this->json(['error' => 'Admin service error : '], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -54,7 +56,7 @@ class ServiceAdminController extends AbstractController
     public function search(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $search = trim((string) $request->query->get('search', ''));
+            $search = trim((string) $request->query->get('search'));
 
             if (empty($search)) {
                 return $this->json(['error' => 'Search parameter is empty'], Response::HTTP_BAD_REQUEST);
@@ -130,15 +132,15 @@ class ServiceAdminController extends AbstractController
     public function delete(int $id): JsonResponse
     {
         try {
-            $service= $this->entityManager->getRepository(Service::class)->find($id);
+            $service = $this->entityManager->getRepository(Service::class)->find($id);
             if (!$service) {
-                return new JsonResponse(['error' => 'Service introuvable'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Service introuvable'], Response::HTTP_NOT_FOUND);
             }
 
             $this->entityManager->remove($service);
             $this->entityManager->flush();
 
-            return new JsonResponse(null, Response::HTTP_OK,);
+            return $this->json(['message' => 'Le service a été supprimé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des contacts : ', [$e->getMessage()]);
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
