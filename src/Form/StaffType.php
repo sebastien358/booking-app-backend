@@ -22,7 +22,7 @@ class StaffType extends AbstractType
     {
         $resolver->setDefaults([
             'data_class' => Staff::class,
-            'csrf_protection' => false,
+            'csrf_protection' => false
         ]);
     }
 }

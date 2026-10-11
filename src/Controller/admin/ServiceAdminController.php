@@ -106,14 +106,14 @@ class ServiceAdminController extends AbstractController
             $form = $this->createForm(ServiceType::class, $service);
             $form->submit($data);
 
-            if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$form->isValid()) {
                 $errors = $this->getErrorMessages($form);
-                return $this->json(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+                return $this->json(['error' => $errors], Response::HTTP_BAD_REQUEST);
             }
 
             $category = $this->entityManager->getRepository(Category::class)->find($data['category']);
             if (!$category) {
-                return $this->json(['error' => 'Category not found'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Category introuvable'], Response::HTTP_BAD_REQUEST);
             }
 
             $service->setCategory($category);

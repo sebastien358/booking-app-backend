@@ -3,10 +3,9 @@
 namespace App\Controller;
 
 use App\Entity\Appointment;
-use App\Entity\Category;
 use App\Entity\Service;
+use App\Entity\SlotHold;
 use App\Entity\Staff;
-use App\Entity\User;
 use App\Repository\AppointmentRepository;
 use App\Services\MailerProvider;
 use DateTimeZone;
@@ -136,6 +135,12 @@ class AppointmentController extends AbstractController
 
         $duration = (int) $service->getDuration();
 
+        $holds = $this->entityManager->getRepository(SlotHold::class)->findActiveHoldsForDay(
+            $staff,
+            $dayStartParis->setTimezone($tzUtc),
+            $dayEndParis->setTimezone($tzUtc)
+        );
+
         $slots = [];
 
         for ($slotStartParis = $dayStartParis; $slotStartParis < $dayEndParis; $slotStartParis = $slotStartParis->modify('+ 30 minutes')) {
@@ -166,6 +171,12 @@ class AppointmentController extends AbstractController
             $slotStartUtc = $slotStartParis->setTimezone($tzUtc);
             $slotEndUtc = $slotEndParis->setTimezone($tzUtc);
 
+            foreach ($holds as $hold) {
+                if ($slotStartUtc < $hold->getEndAt() && $slotEndUtc > $hold->getStartsAt()) {
+                    continue 2;
+                }
+            }
+
             foreach ($appointments as $appointment) {
                 if ($slotStartUtc < $appointment->getEndAt() && $slotEndUtc > $appointment->getStartAt()) {
                     continue 2;
@@ -179,6 +190,68 @@ class AppointmentController extends AbstractController
         }
 
         return $this->json($slots, Response::HTTP_OK);
+    }
+
+    #[Route('/hold/slots', methods: ['POST'])]
+    public function holdSlot(Request $request): JsonResponse
+    {
+        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+        if (empty($data['start']) || empty($data['serviceId']) || empty($data['staffId'])) {
+            return $this->json([]);
+        }
+
+        $service = $this->entityManager->getRepository(Service::class)->find($data['serviceId']);
+        if (!$service) {
+            return $this->json(['error' => 'service not found'], Response::HTTP_NOT_FOUND);
+        }
+
+        $duration = $service->getDuration();
+
+        $staff = $this->entityManager->getRepository(Staff::class)->find($data['staffId']);
+        if (!$staff) {
+            return $this->json(['error' => 'Staff introuvable'], Response::HTTP_NOT_FOUND);
+        }
+
+        $tzParis = new \DateTimeZone('Europe/Paris');
+        $tzUtc = new \DateTimeZone('UTC');
+
+        $startsAtParis = new \DateTimeImmutable($data['start'], $tzParis);
+        $startsAtUtc = $startsAtParis->setTimezone($tzUtc);
+        $endAtUtc = $startsAtUtc->modify("+ {$duration} minutes");
+
+        try {
+            $holdId = $this->entityManager->wrapInTransaction(function() use ($staff, $startsAtUtc, $endAtUtc) {
+                $existing = $this->entityManager->getRepository(SlotHold::class)->findActiveHold($staff, $startsAtUtc, $endAtUtc);
+
+                if ($existing) {
+                    throw new \RuntimeException('ALREADY_HELD');
+                }
+
+                $hold = new SlotHold();
+                $hold->setStaff($staff);
+                $hold->setStartsAt($startsAtUtc);
+                $hold->setEndAt($endAtUtc);
+                $hold->setExpiresAt(new \DateTimeImmutable('+10 minutes', new \DateTimeZone('UTC')));
+                $this->entityManager->persist($hold);
+                $this->entityManager->flush();
+
+                return $hold->getId();
+            });
+
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'ALREADY_HELD') {
+                return $this->json(['error' => 'Créneau en cours de réservation'], 409);
+            }
+            throw $e;
+        }
+
+        return $this->json([
+            'ok' => true,
+            'holdId' => $holdId,
+            'expiresIn' => 600,
+            'expiresAt' => (new \DateTimeImmutable('+10 minutes', new \DateTimeZone('UTC')))->format('c')
+        ]);
     }
 
     #[Route('/create', methods: ['POST'])]
