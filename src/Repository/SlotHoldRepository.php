@@ -5,7 +5,6 @@ namespace App\Repository;
 use App\Entity\SlotHold;
 use App\Entity\Staff;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
-use Doctrine\DBAL\LockMode;
 use Doctrine\Persistence\ManagerRegistry;
 
 /**
@@ -22,9 +21,9 @@ class SlotHoldRepository extends ServiceEntityRepository
     {
         return $this->createQueryBuilder('h')
             ->where('h.staff = :staff')
+            ->andWhere('h.startsAt = :start')
+            ->andWhere('h.endAt = :end')
             ->andWhere('h.expiresAt > :now')
-            ->andWhere('h.startsAt < :end')
-            ->andWhere('h.endAt > :start')
             ->setParameter('staff', $staff)
             ->setParameter('start', $start)
             ->setParameter('end', $end)
@@ -46,6 +45,14 @@ class SlotHoldRepository extends ServiceEntityRepository
             ->setParameter('now', new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
             ->getQuery()
             ->getResult();
+    }
+
+    public function deleteExpired(): int {
+        return $this->createQueryBuilder('h')->delete()
+            ->where('h.expiresAt < :now')
+            ->setParameter('now', new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
+            ->getQuery()
+            ->execute();
     }
 
     //    /**

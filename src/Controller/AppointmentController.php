@@ -11,6 +11,7 @@ use App\Services\MailerProvider;
 use DateTimeZone;
 use DateTimeImmutable;
 use Doctrine\ORM\EntityManagerInterface;
+use http\Exception\RuntimeException;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\Form\FormInterface;
@@ -20,6 +21,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Http\Attribute\IsGranted;
 use Symfony\Component\Serializer\SerializerInterface;
+use Twig\Error\RuntimeError;
 
 #[Route('/api/appointment')]
 class AppointmentController extends AbstractController
@@ -63,9 +65,81 @@ class AppointmentController extends AbstractController
         }
     }
 
+    #[Route('/hold/slots', methods: ['POST'])]
+    public function holdSlot(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+            if (
+                empty($data['startAt']) ||
+                empty($data['serviceId']) ||
+                empty($data['staffId'])
+            ) {
+                return $this->json(['error' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $service = $this->entityManager->getRepository(Service::class)->find($data['serviceId']);
+            if (!$service) {
+                return $this->json(['error' => 'Service not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $staff = $this->entityManager->getRepository(Staff::class)->find($data['staffId']);
+            if (!$staff) {
+                return $this->json(['error' => 'Staff not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $tzParis = new DateTimeZone('Europe/Paris');
+            $tzUtc = new DateTimeZone('UTC');
+
+            $startParis = new DateTimeImmutable($data['startAt'], $tzParis);
+            $startUtc= $startParis->setTimezone($tzUtc);
+
+            $duration = (int) $service->getDuration();
+            $endUtc = $startUtc->modify("+{$duration} minutes");
+
+            $this->entityManager->wrapInTransaction(function () use ($staff, $startUtc, $endUtc) {
+                $existing = $this->entityManager->getRepository(SlotHold::class)->findActiveHold($staff, $startUtc, $endUtc);
+
+                if ($existing) {
+                    throw new \RuntimeException('ALREADY_HELD');
+                }
+
+                $expiresAt = new DateTimeImmutable("+ 10 minutes", new DateTimeZone("UTC"));
+
+                $slotHold = new SlotHold();
+
+                $slotHold->setStaff($staff);
+                $slotHold->setStartsAt($startUtc);
+                $slotHold->setEndAt($endUtc);
+                $slotHold->setExpiresAt($expiresAt);
+
+                $this->entityManager->persist($slotHold);
+                $this->entityManager->flush();
+            });
+
+            return $this->json([
+                'success' => true
+            ], Response::HTTP_CREATED);
+
+        } catch (\RuntimeException $e) {
+            if ($e->getMessage() === 'ALREADY_HELD') {
+
+                return $this->json([
+                    'type' => 'ALREADY_HELD',
+                    'message' => 'Ce créneau est déjà '
+                ], Response::HTTP_CONFLICT);
+            }
+
+            throw $e;
+        }
+    }
+
     #[Route('/slots', methods: ['GET'])]
     public function slots(Request $request): JsonResponse
     {
+        $this->entityManager->getRepository(SlotHold::class)->deleteExpired();
+
         // ✅ Récupération des données depuis le frontend
 
         $date = (string) $request->query->get('date');
@@ -192,67 +266,6 @@ class AppointmentController extends AbstractController
         return $this->json($slots, Response::HTTP_OK);
     }
 
-    #[Route('/hold/slots', methods: ['POST'])]
-    public function holdSlot(Request $request): JsonResponse
-    {
-        $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
-
-        if (empty($data['start']) || empty($data['serviceId']) || empty($data['staffId'])) {
-            return $this->json([]);
-        }
-
-        $service = $this->entityManager->getRepository(Service::class)->find($data['serviceId']);
-        if (!$service) {
-            return $this->json(['error' => 'service not found'], Response::HTTP_NOT_FOUND);
-        }
-
-        $duration = $service->getDuration();
-
-        $staff = $this->entityManager->getRepository(Staff::class)->find($data['staffId']);
-        if (!$staff) {
-            return $this->json(['error' => 'Staff introuvable'], Response::HTTP_NOT_FOUND);
-        }
-
-        $tzParis = new \DateTimeZone('Europe/Paris');
-        $tzUtc = new \DateTimeZone('UTC');
-
-        $startsAtParis = new \DateTimeImmutable($data['start'], $tzParis);
-        $startsAtUtc = $startsAtParis->setTimezone($tzUtc);
-        $endAtUtc = $startsAtUtc->modify("+ {$duration} minutes");
-
-        try {
-            $holdId = $this->entityManager->wrapInTransaction(function() use ($staff, $startsAtUtc, $endAtUtc) {
-                $existing = $this->entityManager->getRepository(SlotHold::class)->findActiveHold($staff, $startsAtUtc, $endAtUtc);
-
-                if ($existing) {
-                    throw new \RuntimeException('ALREADY_HELD');
-                }
-
-                $hold = new SlotHold();
-                $hold->setStaff($staff);
-                $hold->setStartsAt($startsAtUtc);
-                $hold->setEndAt($endAtUtc);
-                $hold->setExpiresAt(new \DateTimeImmutable('+10 minutes', new \DateTimeZone('UTC')));
-                $this->entityManager->persist($hold);
-                $this->entityManager->flush();
-
-                return $hold->getId();
-            });
-
-        } catch (\RuntimeException $e) {
-            if ($e->getMessage() === 'ALREADY_HELD') {
-                return $this->json(['error' => 'Créneau en cours de réservation'], 409);
-            }
-            throw $e;
-        }
-
-        return $this->json([
-            'ok' => true,
-            'holdId' => $holdId,
-            'expiresIn' => 600,
-            'expiresAt' => (new \DateTimeImmutable('+10 minutes', new \DateTimeZone('UTC')))->format('c')
-        ]);
-    }
 
     #[Route('/create', methods: ['POST'])]
     public function create(Request $request): JsonResponse
