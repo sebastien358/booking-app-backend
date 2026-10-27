@@ -76,12 +76,7 @@ class AppointmentController extends AbstractController
                 empty($data['serviceId']) ||
                 empty($data['staffId'])
             ) {
-                return $this->json(['error' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
-            }
-
-            $service = $this->entityManager->getRepository(Service::class)->find($data['serviceId']);
-            if (!$service) {
-                return $this->json(['error' => 'Service not found'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'No data'], Response::HTTP_BAD_REQUEST);
             }
 
             $staff = $this->entityManager->getRepository(Staff::class)->find($data['staffId']);
@@ -89,28 +84,36 @@ class AppointmentController extends AbstractController
                 return $this->json(['error' => 'Staff not found'], Response::HTTP_NOT_FOUND);
             }
 
+            $service = $this->entityManager->getRepository(Service::class)->find($data['serviceId']);
+            if (!$service) {
+                return $this->json(['error' => 'Service not found'], Response::HTTP_NOT_FOUND);
+            }
+
             $tzParis = new DateTimeZone('Europe/Paris');
             $tzUtc = new DateTimeZone('UTC');
 
-            $startParis = new DateTimeImmutable($data['startAt'], $tzParis);
-            $startUtc= $startParis->setTimezone($tzUtc);
+            $startAtParis = new DateTimeImmutable($data['startAt'], $tzParis);
+            $startAtUtc = $startAtParis->setTimezone($tzUtc);
+            $endUtc = $startAtUtc->modify("+{$service->getDuration()} minutes");
 
-            $duration = (int) $service->getDuration();
-            $endUtc = $startUtc->modify("+{$duration} minutes");
+            $this->entityManager->wrapInTransaction(function () use ($staff, $startAtUtc, $endUtc) {
 
-            $this->entityManager->wrapInTransaction(function () use ($staff, $startUtc, $endUtc) {
-                $existing = $this->entityManager->getRepository(SlotHold::class)->findActiveHold($staff, $startUtc, $endUtc);
+                $existing = $this->entityManager->getRepository(SlotHold::class)->findActiveHold(
+                    $staff,
+                    $startAtUtc,
+                    $endUtc
+                );
 
                 if ($existing) {
-                    throw new \RuntimeException('ALREADY_HELD');
+                    throw new RuntimeException('ALREADY_HELD');
                 }
 
-                $expiresAt = new DateTimeImmutable("+ 10 minutes", new DateTimeZone("UTC"));
+                $expiresAt = new DateTimeImmutable("+10 minutes", new DateTimeZone("UTC"));
 
                 $slotHold = new SlotHold();
 
                 $slotHold->setStaff($staff);
-                $slotHold->setStartsAt($startUtc);
+                $slotHold->setStartsAt($startAtUtc);
                 $slotHold->setEndAt($endUtc);
                 $slotHold->setExpiresAt($expiresAt);
 
@@ -127,7 +130,7 @@ class AppointmentController extends AbstractController
 
                 return $this->json([
                     'type' => 'ALREADY_HELD',
-                    'message' => 'Ce créneau est déjà '
+                    'message' => 'Créneau déjà réservé'
                 ], Response::HTTP_CONFLICT);
             }
 

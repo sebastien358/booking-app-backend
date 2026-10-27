@@ -23,11 +23,9 @@ class SlotHoldRepository extends ServiceEntityRepository
             ->where('h.staff = :staff')
             ->andWhere('h.startsAt = :start')
             ->andWhere('h.endAt = :end')
-            ->andWhere('h.expiresAt > :now')
             ->setParameter('staff', $staff)
             ->setParameter('start', $start)
             ->setParameter('end', $end)
-            ->setParameter('now', new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
             ->getQuery()
             ->getOneOrNullResult();
     }

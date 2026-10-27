@@ -53,6 +53,18 @@ class AppointmentRepository extends ServiceEntityRepository
             ->getResult();
     }
 
+    public function findAllAppointmentsUser(User $user, int $offset, int $limit)
+    {
+        return $this->createQueryBuilder('a')
+            ->andWhere('a.user = :user')
+            ->setParameter('user', $user)
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->orderBy('a.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findAllAppointmentsSearch(string $search): array
     {
         return $this->createQueryBuilder('a')
@@ -75,7 +87,17 @@ class AppointmentRepository extends ServiceEntityRepository
     public function findAllCount()
     {
         return $this->createQueryBuilder('a')
-            ->select('COUNT(a)')
+            ->select('COUNT(a.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function findAllCountUser(User $user)
+    {
+        return $this->createQueryBuilder('a')
+            ->select('COUNT(a.id)')
+            ->where('a.user = :user')
+            ->setParameter('user', $user)
             ->getQuery()
             ->getSingleScalarResult();
     }

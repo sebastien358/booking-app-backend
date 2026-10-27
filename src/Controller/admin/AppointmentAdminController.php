@@ -31,6 +31,7 @@ class AppointmentAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
+
             if (!$user) {
                 return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
             }
@@ -42,7 +43,7 @@ class AppointmentAdminController extends AbstractController
             $count = $this->entityManager->getRepository(Appointment::class)->findAllCount();
 
             $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments'],
-                'circular_reference_handlers' => function ($object) {
+                'circular_reference_handler' => function ($object) {
                     return $object->getId();
                 }
             ]);
@@ -63,9 +64,13 @@ class AppointmentAdminController extends AbstractController
     public function search(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $search = trim((string) $request->query->get('search'));
-            $search = trim($search);
+            $user = $this->getUser();
 
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $search = trim((string) $request->query->get('search'));
             if ($search === '') {
                 return $this->json([], Response::HTTP_OK);
             }
@@ -86,6 +91,7 @@ class AppointmentAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
+
             if (!$user) {
                 return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
             }
@@ -118,6 +124,7 @@ class AppointmentAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
+
             if (!$user) {
                 return $this->json(['error' => 'Admin non authentifié'], Response::HTTP_UNAUTHORIZED);
             }
@@ -143,6 +150,7 @@ class AppointmentAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
+
             if (!$user) {
                 return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
             }

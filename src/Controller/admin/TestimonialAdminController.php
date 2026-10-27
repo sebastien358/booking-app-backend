@@ -2,7 +2,6 @@
 
 namespace App\Controller\admin;
 
-use App\Entity\Picture;
 use App\Entity\Testimonial;
 use App\Services\TestimonialService;
 use App\Services\UploadFileService;
