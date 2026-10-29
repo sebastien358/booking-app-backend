@@ -59,4 +59,59 @@ class AppointmentUserController extends AbstractController
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
+
+    #[Route('/bookings/details/{id}', methods: ['GET'])]
+    public function show(int $id, Request $request, SerializerInterface $serializer): Response
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $appointments = $this->entityManager->getRepository(Appointment::class)->find($id);
+            if (!$appointments) {
+                return $this->json(['error' => 'Appointment not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointment','service', 'staff'],
+                'circular_reference_handler' => function ($object) {
+                    return $object->getId();
+                }
+            ]);
+
+            $appointments->setIsRead(true);
+            $this->entityManager->flush();
+
+            return $this->json($dataAppointments, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Error de la récupération des rendez-vous : ', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+
+    #[Route('/bookings/delete/{id}', methods: ['DELETE'])]
+    public function delete(int $id): Response
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $appointment = $this->entityManager->getRepository(Appointment::class)->find($id);
+            if (!$appointment) {
+                return $this->json(['error' => 'Appointment not found'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->entityManager->remove($appointment);
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'Le rendez-vous a été annulé'], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Error de la récupération des rendez-vous : ', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
 }
