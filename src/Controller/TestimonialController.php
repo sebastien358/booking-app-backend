@@ -34,17 +34,45 @@ class TestimonialController extends AbstractController
         $this->logger = $logger;
     }
 
+    #[Route('/home', methods: ['GET'])]
+    public function home(Request $request, SerializerInterface $serializer): JsonResponse
+    {
+        try {
+            $testimonials = $this->entityManager->getRepository(Testimonial::class)->TestimonialsHomePage();
+            if (!$testimonials) {
+                return $this->json(['error' => 'No testimonials found'], Response::HTTP_BAD_REQUEST);
+            }
+
+            $dataList = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
+
+            return $this->json($dataList, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/list', methods: ['GET'])]
     public function index(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $offset = (int) $request->query->get('offset');
-            $limit = (int) $request->query->get('limit');
+            $currentPage = $request->query->getInt('currentPage', 1);
+            $limit = $request->query->getInt('limit');
 
-            $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonials($limit, $offset);
+            if ($currentPage < 1 || $limit < 1) {
+                return new JsonResponse(['error' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
+            }
 
+            $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonials($currentPage, $limit);
             $dataList = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
-            return $this->json($dataList, Response::HTTP_OK);
+
+            $countTestimonials = $this->entityManager->getRepository(Testimonial::class)->countTestimonials();
+
+            return $this->json([
+                'testimonials' => $dataList,
+                'pages' => (int) ceil($countTestimonials / $limit)
+            ], Response::HTTP_OK);
+
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);

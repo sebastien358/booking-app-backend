@@ -2,6 +2,7 @@
 
 namespace App\Controller\admin;
 
+use App\Entity\User;
 use App\Form\UserType;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
@@ -28,6 +29,56 @@ class UserAdminController extends AbstractController
         $this->logger = $logger;
         $this->entityManager = $entityManager;
         $this->passwordHasher = $passwordHasher;
+    }
+
+    #[Route('/account/clients', methods: ['GET'])]
+    public function index(SerializerInterface $serializer): Response
+    {
+        try {
+            $users = $this->getUser();
+            if (!$users) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $users = $this->entityManager->getRepository(User::class)->findAll();
+            $dataUsers = $serializer->normalize($users, 'json', ['groups' => ['user'],
+                'circular_reference_handler' => function ($object) {
+                    return $object->getId();
+                }
+            ]);
+
+            return $this->json($dataUsers, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération de tous le clients', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/account/clients/is-read/{id}', methods: ['GET'])]
+    public function isRead(int $id, SerializerInterface $serializer): Response
+    {
+        try {
+            $users = $this->getUser();
+            if (!$users) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $user = $this->entityManager->getRepository(User::class)->find($id);
+            if ($user) {
+                return $this->json(['error' => ''], Response::HTTP_NOT_FOUND);
+            }
+
+            $dataUser = $serializer->normalize($user, 'json', ['groups' => ['user'],
+                'circular_reference_handler' => function ($object) {
+                    return $object->getId();
+                }
+            ]);
+
+            return $this->json($dataUser, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération de tous le clients', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
     }
 
     #[Route('/account', methods: ['GET'])]

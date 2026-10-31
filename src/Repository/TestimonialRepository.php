@@ -17,6 +17,17 @@ class TestimonialRepository extends ServiceEntityRepository
 
     }
 
+    public function TestimonialsHomePage()
+    {
+        return $this->createQueryBuilder('t')
+            ->where('t.is_published = :is_published')
+            ->setParameter('is_published', true)
+            ->setMaxResults(3)
+            ->orderBy('t.id', 'DESC')
+            ->getQuery()
+            ->getResult();
+    }
+
     public function findAllAdminTestimonials(int $offset, int $limit)
     {
         return $this->createQueryBuilder('t')
@@ -27,14 +38,14 @@ class TestimonialRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function findAllTestimonials(int $limit, int $offset)
+    public function findAllTestimonials(int $currentPage, int $limit)
     {
         return $this->createQueryBuilder('t')
             ->where('t.is_published = :is_published')
             ->setParameter('is_published', true)
-            ->setFirstResult($offset)
+            ->setFirstResult(($currentPage - 1 ) * $limit)
             ->setMaxResults($limit)
-            ->orderBy('t.id', 'ASC')
+            ->orderBy('t.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
@@ -44,15 +55,24 @@ class TestimonialRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('c')
             ->where('c.author LIKE :search')
             ->setParameter('search', '%' . $search . '%')
-            ->orderBy('c.id', 'ASC')
+            ->orderBy('c.id', 'DESC')
             ->getQuery()
             ->getResult();
     }
 
-    public function testimonialCount()
+    public function testimonialCount(): int
     {
         return $this->createQueryBuilder('t')
             ->select('count(t.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
+
+    public function countTestimonials(): int {
+        return $this->createQueryBuilder('t')
+            ->select('count(t.id)')
+            ->where('t.is_published = :is_published')
+            ->setParameter('is_published', true)
             ->getQuery()
             ->getSingleScalarResult();
     }
