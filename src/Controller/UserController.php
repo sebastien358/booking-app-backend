@@ -51,7 +51,25 @@ class UserController extends AbstractController
             return $this->json($dataUser, Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération de l\'utilisateur connecté', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/account-exist', methods: ['POST'])]
+    public function exist(Request $request): JsonResponse
+    {
+        try {
+            $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
+
+            $user = $this->entityManager->getRepository(User::class)->findOneBy(['email' => $data['email']]);
+            if (!$user) {
+                return $this->json(['type' => 'ERROR_ACCOUNT_EXIST', 'message' => 'Pas de compte existant.'], Response::HTTP_CONFLICT);
+            }
+
+            return $this->json(['message' => 'Un compte existe'], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération de l\'utilisateur connecté', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

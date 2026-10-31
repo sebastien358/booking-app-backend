@@ -45,12 +45,13 @@ class SlotHoldRepository extends ServiceEntityRepository
             ->getResult();
     }
 
-    public function deleteExpired(): int {
+    public function deleteExpired(): int
+    {
         return $this->createQueryBuilder('h')->delete()
-            ->where('h.expiresAt < :now')
+            ->where('h.expiresAt <= :now')
             ->setParameter('now', new \DateTimeImmutable('now', new \DateTimeZone('UTC')))
             ->getQuery()
-            ->execute();
+            ->getSingleScalarResult();
     }
 
     //    /**
