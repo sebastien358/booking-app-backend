@@ -78,6 +78,30 @@ class UserAdminController extends AbstractController
         }
     }
 
+    #[Route('/account/client/is-visible/{id}', methods: ['POST'])]
+    public function isVisible(int $id): Response
+    {
+        try {
+            $users = $this->getUser();
+            if (!$users) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $user = $this->entityManager->getRepository(User::class)->find($id);
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $user->setIsVisible(!$user->getIsVisible());
+            $this->entityManager->flush();
+
+            return $this->json(['success' => true], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération de tous le clients', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/account/client/delete/{id}', methods: ['DELETE'])]
     public function delete(int $id): Response
     {
