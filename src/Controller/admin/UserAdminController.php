@@ -54,8 +54,8 @@ class UserAdminController extends AbstractController
         }
     }
 
-    #[Route('/account/clients/is-read/{id}', methods: ['GET'])]
-    public function isRead(int $id, SerializerInterface $serializer): Response
+    #[Route('/account/client/is-read/{id}', methods: ['POST'])]
+    public function isRead(int $id): Response
     {
         try {
             $users = $this->getUser();
@@ -64,19 +64,40 @@ class UserAdminController extends AbstractController
             }
 
             $user = $this->entityManager->getRepository(User::class)->find($id);
-            if ($user) {
-                return $this->json(['error' => ''], Response::HTTP_NOT_FOUND);
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_NOT_FOUND);
             }
 
-            $dataUser = $serializer->normalize($user, 'json', ['groups' => ['user'],
-                'circular_reference_handler' => function ($object) {
-                    return $object->getId();
-                }
-            ]);
+            $user->setIsRead(true);
+            $this->entityManager->flush();
 
-            return $this->json($dataUser, Response::HTTP_OK);
+            return $this->json(['success' => true], Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération de tous le clients', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/account/client/delete/{id}', methods: ['DELETE'])]
+    public function delete(int $id): Response
+    {
+        try {
+            $users = $this->getUser();
+            if (!$users) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $user = $this->entityManager->getRepository(User::class)->find($id);
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $this->entityManager->remove($user);
+            $this->entityManager->flush();
+
+            return $this->json(['success' => true], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la suppression d\'un client', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
