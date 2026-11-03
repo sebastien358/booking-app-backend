@@ -26,9 +26,9 @@ class Staff
     #[Groups(['staffs', 'staff'])]
     private ?string $lastname = null;
 
-    #[ORM\Column(nullable: true)]
+    #[ORM\Column(type: 'boolean', nullable: false)]
     #[Groups(['staffs', 'staff'])]
-    private ?bool $is_active = null;
+    private ?bool $is_active = true;
 
     #[ORM\Column]
     #[Groups(['staffs', 'staff'])]

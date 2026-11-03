@@ -28,8 +28,7 @@ class StaffAdminController extends AbstractController
     private StaffService $staffService;
     private LoggerInterface $logger;
 
-    public function __construct(
-        EntityManagerInterface $entityManager, UploadFileService $uploadFileService,
+    public function __construct(EntityManagerInterface $entityManager, UploadFileService $uploadFileService,
         StaffService $staffService, LoggerInterface $logger)
     {
         $this->entityManager = $entityManager;
@@ -39,86 +38,138 @@ class StaffAdminController extends AbstractController
     }
 
     #[Route('/list', methods: ['GET'])]
-    public function list(Request $request, SerializerInterface $serializer): JsonResponse
+    public function list(Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $limit = $request->query->get('limit');
-            $offset = $request->query->get('offset');
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
 
-            $staffs = $this->entityManager->getRepository(Staff::class)->findAllStaffs($limit, $offset);
+            $offset = $request->query->getInt('offset');
+            $limit = $request->query->getInt('limit');
+
+            if (!is_numeric($offset) || !is_numeric($limit)) {
+                return $this->json(['error' => 'Les données ne sont pas valides'], Response::HTTP_NOT_FOUND);
+            }
+
+            $staffs = $this->entityManager->getRepository(Staff::class)->findAllAdmin($offset, $limit);
             $dataStaffs = $this->staffService->staffDisplay($staffs, $request, $serializer);
 
-            return new JsonResponse($dataStaffs, Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la récupération des salariés : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $countStaffs = $this->entityManager->getRepository(Staff::class)->countAdmin();
+
+            return $this->json([
+                'staffs' => $dataStaffs,
+                'count' => (int) $countStaffs
+            ], Response::HTTP_OK);
+
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération des salariés', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/search', methods: ['GET'])]
-    public function search(Request $request, SerializerInterface $serializer): JsonResponse
+    public function search(Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $search = $request->query->get('search');
-            $staffs = $this->entityManager->getRepository(Staff::class)->findAllStaffSearch($search);
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
 
-            $dataStaffs = $serializer->normalize($staffs, 'json', ['groups' => 'staffs']);
-            return new JsonResponse($dataStaffs, Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur liste des rendez-vous clients : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $search = trim($request->query->getString('search'));
+            if (empty($search)) {
+                return $this->json(['error' => 'Les données ne sont pas valides'], Response::HTTP_NOT_FOUND);
+            }
+
+            $staffs = $this->entityManager->getRepository(Staff::class)->findAllSearchAdmin($search);
+            $dataStaff = $this->staffService->staffDisplay($staffs, $request, $serializer);
+
+            return $this->json($dataStaff, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération des salariés', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/show/{id}', methods: ['GET'])]
-    public function show(int $id, Request $request, SerializerInterface $serializer): JsonResponse
+    public function id(int $id, Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $staff = $this->entityManager->getRepository(Staff::class)->find($id);
-            if (!$staff) {
-                return new JsonResponse(['error' => 'Coiffeur introuvable'], Response::HTTP_NOT_FOUND);
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
             }
 
-            $dataStaff = $this->staffService->staffDisplay($staff, $request, $serializer);
+            $staffs = $this->entityManager->getRepository(Staff::class)->find($id);
+            if (!$staffs) {
+                return $this->json(['error' => 'Salarié introuvable'], Response::HTTP_NOT_FOUND);
+            }
 
-            return new JsonResponse($dataStaff, Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la récupération des salariés : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $dataStaff = $this->staffService->staffDisplay($staffs, $request, $serializer);
+
+            return $this->json($dataStaff, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération d\'un salarié', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
-    #[Route('/create', methods: ['POST'])]
+
+    #[Route('/toggle/{id}', methods: ['POST'])]
+    public function toggle(int $id, Request $request, SerializerInterface $serializer): Response
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $staffs = $this->entityManager->getRepository(Staff::class)->find($id);
+            if (!$staffs) {
+                return $this->json(['error' => 'Utiliosateur introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $dataStaff = $this->staffService->staffDisplay($staffs, $request, $serializer);
+
+            $staffs->setIsActive(!$staffs->isActive());
+            $this->entityManager->flush();
+
+            return $this->json($dataStaff, Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération d\'un salarié', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/add', methods: ['POST'])]
     public function new(Request $request): JsonResponse
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['message' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $staff = new Staff();
 
             $form = $this->createForm(StaffType::class, $staff);
             $data = $request->request->all();
-
             $form->submit($data);
 
-            if (!$form->isSubmitted() || !$form->isValid()) {
+            if (!$form->isSubmitted() && !$form->isValid()) {
                 $errors = $this->getErrorMessages($form);
-                return new JsonResponse(['errors' => $errors], Response::HTTP_BAD_REQUEST);
+                return $this->json(['error' => $errors], Response::HTTP_BAD_REQUEST);
             }
 
-            $image = $request->files->get('filename');
-            if ($image instanceof UploadedFile) {
-                $picture = new Picture();
-                $newFilename = $this->uploadFileService->upload($image);
-                $picture->setFilename($newFilename);
-                $picture->setStaff($staff);
-                $staff->setPicture($picture);
-
-                $this->entityManager->persist($picture);
-            }
+            $image = $request->files->get('picture') ?? null;
+            $this->staffService->staffImage($staff, $image);
 
             $this->entityManager->persist($staff);
             $this->entityManager->flush();
 
-            return new JsonResponse(['message' => 'Un employé a été ajouté'], Response::HTTP_OK);
+            return $this->json(['message' => 'Un employé a été ajouté'], Response::HTTP_CREATED);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de l\'ajout d\'un salarié : ', [$e->getMessage()]);
             return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -126,69 +177,29 @@ class StaffAdminController extends AbstractController
     }
 
     #[Route('/delete/{id}', methods: ['DELETE'])]
-    public function deleteId(int $id): JsonResponse
+    public function delete(int $id, Request $request, SerializerInterface $serializer): Response
     {
         try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
             $staff = $this->entityManager->getRepository(Staff::class)->find($id);
             if (!$staff) {
-                return new JsonResponse(['error' => 'Coiffeuse introuvable'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Salarié introuvable'], Response::HTTP_NOT_FOUND);
             }
+
+            $picture = $staff->getPicture();
+            $this->uploadFileService->removeImage($staff, $picture);
 
             $this->entityManager->remove($staff);
             $this->entityManager->flush();
 
-            return new JsonResponse(null, Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la suppprésion d\'un des salariés : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    #[Route('/delete/{id}/picture/{pictureId}', methods: ['DELETE'])]
-    public function delete(int $id, int $pictureId): JsonResponse
-    {
-        try {
-            $staff = $this->entityManager->getRepository(Staff::class)->find($id);
-            if (!$staff) {
-                return new JsonResponse(['error' => 'Coiffeuse introuvable'], Response::HTTP_NOT_FOUND);
-            }
-
-            $img = $staff->getPicture();
-
-            if ($img !== null && $pictureId !== 0) {
-                if ($img->getId() !== $pictureId) {
-                    return new JsonResponse(['error' => 'L\'image ne correspond pas aux coiffeuses'], Response::HTTP_NOT_FOUND);
-                }
-                $this->uploadFileService->deleteFile($img->getFilename());
-                $this->entityManager->remove($img);
-            }
-
-            $this->entityManager->remove($staff);
-            $this->entityManager->flush();
-
-            return new JsonResponse(null, Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la suppprésion d\'un des salariés : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
-    }
-
-    #[Route('/{id}/toggle', methods: ['POST'])]
-    public function toggle(int $id): JsonResponse
-    {
-        try {
-            $staff = $this->entityManager->getRepository(Staff::class)->find($id);
-            $staff->setIsActive(!$staff->isActive());
-
-            $this->entityManager->flush();
-
-            return new JsonResponse([
-                'id' => $staff->getId(),
-                'is_active' => $staff->isActive(),
-            ] , Response::HTTP_OK);
-        } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la récupération des salariés : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['message' => 'Le salarié a été supprimé'], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération d\'un salarié', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

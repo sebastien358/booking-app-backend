@@ -16,25 +16,41 @@ class StaffRepository extends ServiceEntityRepository
         parent::__construct($registry, Staff::class);
     }
 
-        public function findAllStaffs(int $limit, int $offset)
-        {
-            return $this->createQueryBuilder('s')
-                ->setFirstResult($offset)
-                ->setMaxResults($limit)
-                ->orderBy('s.id', 'DESC')
-                ->getQuery()
-                ->getResult();
-        }
+    public function findAllAdmin(int $offset, int $limit)
+    {
+        return $this->createQueryBuilder('staff')
+            ->setFirstResult($offset)
+            ->setMaxResults($limit)
+            ->getQuery()
+            ->getResult();
+    }
 
-       public function findAllStaffSearch($search)
-       {
-           return $this->createQueryBuilder('s')
-               ->where('s.firstname LIKE :search OR s.lastname LIKE :search')
-               ->setParameter('search', '%'.$search.'%')
-               ->orderBy('s.id', 'DESC')
-               ->getQuery()
-               ->getResult();
-       }
+    public function findAllActive(): array
+    {
+        return $this->createQueryBuilder('s')
+            ->andWhere('s.is_active = :active')
+            ->setParameter('active', true)
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function findAllSearchAdmin(string $search)
+    {
+        return $this->createQueryBuilder('staff')
+            ->where('LOWER(staff.firstname) LIKE :search')
+            ->orWhere('LOWER(staff.lastname) LIKE :search')
+            ->setParameter('search', '%' . $search . '%')
+            ->getQuery()
+            ->getResult();
+    }
+
+    public function countAdmin()
+    {
+        return $this->createQueryBuilder('staff')
+            ->select('count(staff.id)')
+            ->getQuery()
+            ->getSingleScalarResult();
+    }
 
     //    /**
     //     * @return Staff[] Returns an array of Staff objects

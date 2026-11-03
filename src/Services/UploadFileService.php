@@ -23,16 +23,23 @@ class UploadFileService
         return $newFilename;
     }
 
-    public function removeTestimonialImage($testimonial, $image) {
-        if (!$image) {
-            return;
-        }
+    public function removeImage($staff, $image) {
+        if (!$image) return null;
 
         $file = $this->targetDirectory . '/' . $image->getFilename();
         if (file_exists($file)) {
             unlink($file);
         }
+        $this->entityManager->remove($staff);
+    }
 
+    public function removeTestimonialImage($testimonial, $image) {
+        if (!$image) return null;
+
+        $file = $this->targetDirectory . '/' . $image->getFilename();
+        if (file_exists($file)) {
+            unlink($file);
+        }
         $this->entityManager->remove($testimonial);
     }
 }

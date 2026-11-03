@@ -32,9 +32,9 @@ class StaffController extends AbstractController
     public function list(Request $request, SerializerInterface $serializer): JsonResponse
     {
         try {
-            $staffs = $this->entityManager->getRepository(Staff::class)->findAll();
+            $staffs = $this->entityManager->getRepository(Staff::class)->findAllActive();
             if (!$staffs) {
-                return  new JsonResponse(['error' => 'Error de la récupération des salariés'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Error de la récupération des salariés'], Response::HTTP_NOT_FOUND);
            }
 
            $dataStaffs = $this->staffService->staffDisplay($staffs, $request, $serializer);
