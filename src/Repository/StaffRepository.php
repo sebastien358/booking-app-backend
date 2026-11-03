@@ -27,8 +27,8 @@ class StaffRepository extends ServiceEntityRepository
 
     public function findAllActive(): array
     {
-        return $this->createQueryBuilder('s')
-            ->andWhere('s.is_active = :active')
+        return $this->createQueryBuilder('staff')
+            ->andWhere('staff.is_active = :active')
             ->setParameter('active', true)
             ->getQuery()
             ->getResult();

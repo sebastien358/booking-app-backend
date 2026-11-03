@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Serializer\SerializerInterface;
 
-#[Route('/api/staff')]
+#[Route('/api/staffs')]
 class StaffController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
@@ -33,13 +33,9 @@ class StaffController extends AbstractController
     {
         try {
             $staffs = $this->entityManager->getRepository(Staff::class)->findAllActive();
-            if (!$staffs) {
-                return $this->json(['error' => 'Error de la récupération des salariés'], Response::HTTP_NOT_FOUND);
-           }
+            $dataStaffs = $this->staffService->staffDisplay($staffs, $request, $serializer);
 
-           $dataStaffs = $this->staffService->staffDisplay($staffs, $request, $serializer);
-
-           return $this->json($dataStaffs, Response::HTTP_OK);
+            return $this->json($dataStaffs, Response::HTTP_OK);
        } catch(\Throwable $e) {
            $this->logger->error('Erreur de la récupération des salariés : ', [$e->getMessage()]);
                   return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
