@@ -60,7 +60,7 @@ class TestimonialController extends AbstractController
             $limit = $request->query->getInt('limit');
 
             if ($currentPage < 1 || $limit < 1) {
-                return new JsonResponse(['error' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
+                return $this->json(['error' => 'Données manquantes'], Response::HTTP_BAD_REQUEST);
             }
 
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonials($currentPage, $limit);
@@ -122,7 +122,7 @@ class TestimonialController extends AbstractController
             ], Response::HTTP_CREATED);
         } catch(\Throwable $e) {
             $this->logger->error('Error le témoignage n\'a pas pu etre envoyé', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_BAD_REQUEST);
         }
     }
 

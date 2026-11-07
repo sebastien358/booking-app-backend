@@ -4,6 +4,7 @@ namespace App\Controller\admin;
 
 use App\Entity\User;
 use App\Form\UserType;
+use App\Services\UserService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -22,32 +23,31 @@ class UserAdminController extends AbstractController
     private LoggerInterface $logger;
     private EntityManagerInterface $entityManager;
     private UserPasswordHasherInterface $passwordHasher;
+    private UserService $userService;
 
     public function __construct(
-        LoggerInterface $logger, EntityManagerInterface $entityManager, UserPasswordHasherInterface $passwordHasher
+        LoggerInterface $logger, EntityManagerInterface $entityManager,
+        UserPasswordHasherInterface $passwordHasher, UserService $userService
     ) {
         $this->logger = $logger;
         $this->entityManager = $entityManager;
         $this->passwordHasher = $passwordHasher;
+        $this->userService = $userService;
     }
 
     #[Route('/account/clients', methods: ['GET'])]
     public function index(SerializerInterface $serializer): Response
     {
         try {
-            $users = $this->getUser();
-            if (!$users) {
+            $user = $this->getUser();
+            if (!$user) {
                 return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
             }
-
             $users = $this->entityManager->getRepository(User::class)->findAll();
-            $dataUsers = $serializer->normalize($users, 'json', ['groups' => ['user'],
-                'circular_reference_handler' => function ($object) {
-                    return $object->getId();
-                }
-            ]);
-
-            return $this->json($dataUsers, Response::HTTP_OK);
+            $dataUsers = $this->userService->UserDisplay($users, $serializer);
+            return $this->json(
+                $dataUsers, Response::HTTP_OK
+            );
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération de tous le clients', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -131,16 +131,11 @@ class UserAdminController extends AbstractController
     {
         try {
             $user = $this->getUser();
-
             if (!$user) {
                 return $this->json(['error' => 'Itilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
             }
 
-            $dataUser = $serializer->normalize($user, 'json', ['groups' => ['user'],
-                'circular_reference_handler' => function ($object) {
-                    return $object->getId();
-                }
-            ]);
+            $dataUser = $this->userService->UserDisplay($user, $serializer);
 
             return $this->json($dataUser, Response::HTTP_OK);
         } catch (\Throwable $e) {

@@ -5,6 +5,8 @@ namespace App\Services;
 use App\Entity\Picture;
 use App\Entity\Staff;
 use Doctrine\ORM\EntityManagerInterface;
+use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Serializer\SerializerInterface;
 
 class StaffService
 {
@@ -17,7 +19,7 @@ class StaffService
         $this->entityManager = $entityManager;
     }
 
-    public function staffDisplay($staffs, $request, $serializer)
+    public function staffDisplay(mixed $staffs, Request $request, SerializerInterface $serializer)
     {
         $elems = ['groups' => ['staffs', 'picture'], 'circular_reference_handler' => function ($object) {
             return $object->getId();
@@ -43,7 +45,7 @@ class StaffService
         return $dataStaffs;
     }
 
-    public function staffImage(Staff $staff, $image)
+    public function staffImage($staff, $image)
     {
         if (!$image) return;
 

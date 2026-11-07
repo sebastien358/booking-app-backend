@@ -18,8 +18,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
-use Symfony\Component\Security\Http\Attribute\IsGranted;
-use Symfony\Component\Serializer\SerializerInterface;
 
 #[Route('/api/appointment')]
 class AppointmentController extends AbstractController
@@ -37,30 +35,6 @@ class AppointmentController extends AbstractController
         $this->appointmentRepository = $appointmentRepository;
         $this->mailerProvider = $mailerProvider;
         $this->logger = $logger;
-    }
-
-    #[IsGranted("ROLE_USER")]
-    #[Route('/user/list')]
-    public function accountUser(SerializerInterface $serializer): JsonResponse
-    {
-        try {
-            $user = $this->getUser();
-            if (!$user) {
-                return $this->json(['message' => 'User not found'], Response::HTTP_FORBIDDEN);
-            }
-
-            $appointments = $this->appointmentRepository->findAllAppointmentUser($user);
-            $dataAppointments = $serializer->normalize($appointments, 'json', ['groups' => ['appointments', 'services', 'staffs'],
-                'circular_reference_handler' => function ($object) {
-                    return $object->getId();
-                }
-            ]);
-
-            return $this->json($dataAppointments, Response::HTTP_OK);
-        } catch (\Throwable $e) {
-            $this->logger->error('Erreur récupération rdv client', [$e->getMessage()]);
-            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
-        }
     }
 
     #[Route('/slots', methods: ['GET'])]

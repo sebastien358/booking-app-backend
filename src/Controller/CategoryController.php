@@ -30,10 +30,10 @@ class CategoryController extends AbstractController
              $categories = $this->entityManager->getRepository(Category::class)->findAll();
 
              $dataCategories = $serializer->normalize($categories, 'json', ['groups' => 'categories']);
-             return new JsonResponse($dataCategories);
+             return $this->json($dataCategories);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des catégories : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

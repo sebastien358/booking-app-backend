@@ -3,6 +3,7 @@
 namespace App\Controller\User;
 
 use App\Form\UserType;
+use App\Services\UserService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,13 +22,16 @@ class AccountUserController extends AbstractController
     private LoggerInterface $logger;
     private EntityManagerInterface $entityManager;
     private UserPasswordHasherInterface $passwordHasher;
+    private UserService $userService;
 
     public function __construct(
-        EntityManagerInterface $entityManager, LoggerInterface $logger, UserPasswordHasherInterface $passwordHasher
+        EntityManagerInterface $entityManager, LoggerInterface $logger,
+        UserPasswordHasherInterface $passwordHasher, UserService $userService
     ) {
         $this->logger = $logger;
         $this->entityManager = $entityManager;
         $this->passwordHasher = $passwordHasher;
+        $this->userService = $userService;
     }
 
     #[Route('/account', methods: ['GET'])]
@@ -35,16 +39,11 @@ class AccountUserController extends AbstractController
     {
         try {
             $user = $this->getUser();
-
             if (!$user) {
                 return $this->json(['error' => 'User not found'], Response::HTTP_UNAUTHORIZED);
             }
 
-            $dataUser = $serializer->normalize($user, 'json', ['groups' => ['user'],
-                'circular_reference_handler' => function ($object) {
-                    return $object->getId();
-                }
-            ]);
+            $dataUser = $this->userService->UserDisplay($user, $serializer);
 
             return $this->json($dataUser, Response::HTTP_OK);
         } catch (\Throwable $e) {

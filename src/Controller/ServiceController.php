@@ -36,10 +36,10 @@ class ServiceController extends AbstractController
                 }
             ]);
 
-            return new JsonResponse($dataServices, Response::HTTP_OK);
+            return $this->json($dataServices, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur de la récupération des services : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -5,6 +5,7 @@ namespace App\Controller\admin;
 use App\Entity\Category;
 use App\Entity\Service;
 use App\Form\ServiceType;
+use App\Services\ServiceDisplayService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -21,25 +22,30 @@ use Symfony\Component\Serializer\SerializerInterface;
 class ServiceAdminController extends AbstractController
 {
     private EntityManagerInterface $entityManager;
+    private ServiceDisplayService $serviceDisplayService;
     private LoggerInterface $logger;
 
-    public function __construct(EntityManagerInterface $entityManager, LoggerInterface $logger)
-    {
+    public function __construct(
+        EntityManagerInterface $entityManager,
+        ServiceDisplayService $serviceDisplayService,
+        LoggerInterface $logger
+    ) {
         $this->entityManager = $entityManager;
+        $this->serviceDisplayService = $serviceDisplayService;
         $this->logger = $logger;
     }
 
     #[Route('/list', methods: ['GET'])]
-    public function list(Request $request, SerializerInterface $serializer): JsonResponse
+    public function list(Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $offset = (int) $request->query->get('offset');
-            $limit = (int) $request->query->get('limit');
+            $offset = $request->query->getInt('offset');
+            $limit = $request->query->getInt('limit');
 
             $services = $this->entityManager->getRepository(Service::class)->findAllServicesLazyLoad($offset, $limit);
             $count = $this->entityManager->getRepository(Service::class)->findAllCount();
 
-            $dataServices = $serializer->normalize($services, 'json', ['groups' => ['services', 'categories']]);
+            $dataServices = $this->serviceDisplayService->serviceDisplay($services, $serializer);
 
             return $this->json([
                 'services' => $dataServices,
@@ -53,20 +59,18 @@ class ServiceAdminController extends AbstractController
     }
 
     #[Route('/search', methods: ['GET'])]
-    public function search(Request $request, SerializerInterface $serializer): JsonResponse
+    public function search(Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $search = trim((string) $request->query->get('search'));
-
+            $search = trim($request->query->getString('search'));
             if (empty($search)) {
                 return $this->json(['error' => 'Search parameter is empty'], Response::HTTP_BAD_REQUEST);
             }
 
-            $searchTerm = $this->entityManager->getRepository(Service::class)->findAllServiceSearch($search);
+            $service = $this->entityManager->getRepository(Service::class)->findAllServiceSearch($search);
+            $dataServices = $this->serviceDisplayService->serviceDisplay($service, $serializer);
 
-            $dataSearch = $serializer->normalize($searchTerm, 'json', ['groups' => ['services', 'categories']]);
-            return $this->json($dataSearch, Response::HTTP_OK);
-
+            return $this->json($dataServices, Response::HTTP_OK);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur liste des rendez-vous clients : ', ['message' => $e->getMessage()]);
             return $this->json(['error' => 'Internal server error'], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -74,19 +78,15 @@ class ServiceAdminController extends AbstractController
     }
 
     #[Route('/show/{id}', methods: ['GET'])]
-    public function show(int $id, SerializerInterface $serializer): JsonResponse
+    public function show(int $id, SerializerInterface $serializer): Response
     {
         try {
-            $service= $this->entityManager->getRepository(Service::class)->find($id);
+            $service = $this->entityManager->getRepository(Service::class)->find($id);
             if (!$service) {
                 return $this->json(['error' => 'Service introuvable'], Response::HTTP_NOT_FOUND);
             }
 
-            $dataService = $serializer->normalize($service, 'json', ['groups' => ['services', 'cat'],
-                'circulation_reference_handler', function ($object) {
-                    return $object->getId();
-                }
-            ]);
+            $dataService = $this->serviceDisplayService->serviceDisplay($service, $serializer);
 
             return $this->json($dataService, Response::HTTP_OK,);
         } catch(\Throwable $e) {
@@ -96,7 +96,7 @@ class ServiceAdminController extends AbstractController
     }
 
     #[Route('/create', methods: ['POST'])]
-    public function add(Request $request): JsonResponse
+    public function add(Request $request): Response
     {
         try {
             $data = json_decode($request->getContent(), true, 512, JSON_THROW_ON_ERROR);
@@ -129,7 +129,7 @@ class ServiceAdminController extends AbstractController
     }
 
     #[Route('/delete/{id}', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(int $id): Response
     {
         try {
             $service = $this->entityManager->getRepository(Service::class)->find($id);
@@ -142,8 +142,8 @@ class ServiceAdminController extends AbstractController
 
             return $this->json(['message' => 'Le service a été supprimé'], Response::HTTP_OK);
         } catch(\Throwable $e) {
-            $this->logger->error('Erreur de la récupération des contacts : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            $this->logger->error('Erreur de la suppression du service : ', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 

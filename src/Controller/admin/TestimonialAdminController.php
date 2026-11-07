@@ -8,7 +8,6 @@ use App\Services\UploadFileService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -35,46 +34,46 @@ class TestimonialAdminController extends AbstractController
     }
 
     #[Route('/list', methods: ['GET'])]
-    public function index(Request $request, SerializerInterface $serializer): JsonResponse
+    public function index(Request $request, SerializerInterface $serializer): Response
     {
         try {
-            $offset = trim((int) $request->query->get('offset'));
-            $limit = trim((int) $request->query->get('limit'));
+            $offset = $request->query->getInt('offset');
+            $limit = $request->query->getInt('limit');
 
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllAdminTestimonials($offset, $limit);
 
             $testimonials = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
             $count = $this->entityManager->getRepository(Testimonial::class)->testimonialCount();
 
-            return new JsonResponse([
+            return $this->json([
                 'testimonials' => $testimonials,
                 'count' => (int) $count
             ], Response::HTTP_OK);
+
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/search', methods: ['GET'])]
-    public function search(Request $request, SerializerInterface $serializer): JsonResponse
+    public function search(Request $request, SerializerInterface $serializer): Response
     {
         try {
             $search = trim((string) $request->query->get('search'));
-
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->findAllTestimonialSearch($search);
 
             $dataTestimonials = $serializer->normalize($testimonials, 'json', ['groups' => 'testimonials']);
 
-            return new JsonResponse($dataTestimonials, Response::HTTP_OK,);
+            return $this->json($dataTestimonials, Response::HTTP_OK,);
         } catch(\Throwable $e) {
             $this->logger->error('Erreur search contacts: ', [$e->getMessage()]);
-            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/show/{id}', methods: ['GET'])]
-    public function show(int $id, Request $request, SerializerInterface $serializer): JsonResponse
+    public function show(int $id, Request $request, SerializerInterface $serializer): Response
     {
         try {
             $testimonials = $this->entityManager->getRepository(Testimonial::class)->find($id);
@@ -82,21 +81,20 @@ class TestimonialAdminController extends AbstractController
                 return $this->json(['error' => 'Erreur de la récupération d\'un témoignage'], Response::HTTP_NOT_FOUND);
             }
 
-            $testimonials->setIsRead(true);
-
             $testimonials = $this->testimonialService->testimonialDisplay($testimonials, $request, $serializer);
+            $testimonials->setIsRead(true);
 
             $this->entityManager->flush();
 
             return $this->json($testimonials, Response::HTTP_OK);
         } catch (\Throwable $e) {
-            $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
+            $this->logger->error('Erreur de la récupération d\'un témoignage : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 
     #[Route('/show/{id}', methods: ['DELETE'])]
-    public function deleteId(int $id): JsonResponse
+    public function deleteId(int $id): Response
     {
         try {
             $testimonial = $this->entityManager->getRepository(Testimonial::class)->find($id);
@@ -107,7 +105,7 @@ class TestimonialAdminController extends AbstractController
             $this->entityManager->remove($testimonial);
             $this->entityManager->flush();
 
-            return new JsonResponse(null, Response::HTTP_OK);
+            return $this->json(['message' => 'Le témoignage a été supprimé'], Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération des témoignages : ', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
@@ -115,7 +113,7 @@ class TestimonialAdminController extends AbstractController
     }
 
     #[Route('/{id}/delete', methods: ['DELETE'])]
-    public function delete(int $id): JsonResponse
+    public function delete(int $id): Response
     {
         try {
             $testimonial = $this->entityManager->getRepository(Testimonial::class)->find($id);
@@ -124,7 +122,6 @@ class TestimonialAdminController extends AbstractController
             }
 
             $image = $testimonial->getPicture();
-
             $this->uploadFileService->removeTestimonialImage($testimonial, $image);
 
             $this->entityManager->remove($testimonial);
@@ -138,7 +135,7 @@ class TestimonialAdminController extends AbstractController
     }
 
     #[Route('/{id}/toggle', methods: ['PUT'])]
-    public function toggle(int $id): JsonResponse
+    public function toggle(int $id): Response
     {
         try {
             $testimonial = $this->entityManager->getRepository(Testimonial::class)->find($id);
