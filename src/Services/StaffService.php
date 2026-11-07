@@ -45,11 +45,11 @@ class StaffService
 
     public function staffImage(Staff $staff, $image)
     {
-        if (!$image) return null;
+        if (!$image) return;
 
         if ($image->getSize() > 5 * 1024 * 1024) {
             throw new \Exception('La taille de l\'image est trop grande', $image->getClientOriginalName());
-        };
+        }
 
         $picture = new Picture();
         $newFilename = $this->uploadFileService->upload($image);

@@ -7,7 +7,6 @@ use App\Services\StaffService;
 use Doctrine\ORM\EntityManagerInterface;
 use Psr\Log\LoggerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
-use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
@@ -29,7 +28,7 @@ class StaffController extends AbstractController
     }
 
     #[Route('/list', methods: ['GET'])]
-    public function list(Request $request, SerializerInterface $serializer): JsonResponse
+    public function list(Request $request, SerializerInterface $serializer): Response
     {
         try {
             $staffs = $this->entityManager->getRepository(Staff::class)->findAllActive();
@@ -38,7 +37,7 @@ class StaffController extends AbstractController
             return $this->json($dataStaffs, Response::HTTP_OK);
        } catch(\Throwable $e) {
            $this->logger->error('Erreur de la récupération des salariés : ', [$e->getMessage()]);
-                  return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+          return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
 }

@@ -18,14 +18,24 @@ class UploadFileService
 
     public function upload(UploadedFile $file)
     {
-        $newFilename = uniqid() . '.' .$file->guessExtension();
+        $newFilename = uniqid() . '.' . $file->guessExtension();
         $file->move($this->targetDirectory, $newFilename);
         return $newFilename;
     }
 
-    public function removeImage($staff, $image) {
-        if (!$image) return null;
+    public function staffDeleteImage($image)
+    {
+        if (!$image) return;
+        $fileExist = $this->targetDirectory . '/' . $image->getFilename();
+        if (file_exists($fileExist)) {
+            unlink($fileExist);
+        }
+        $this->entityManager->remove($image);
+    }
 
+    public function removeImage($staff, $image)
+    {
+        if (!$image) return;
         $file = $this->targetDirectory . '/' . $image->getFilename();
         if (file_exists($file)) {
             unlink($file);
@@ -33,9 +43,9 @@ class UploadFileService
         $this->entityManager->remove($staff);
     }
 
-    public function removeTestimonialImage($testimonial, $image) {
-        if (!$image) return null;
-
+    public function removeTestimonialImage($testimonial, $image)
+    {
+        if (!$image) return;
         $file = $this->targetDirectory . '/' . $image->getFilename();
         if (file_exists($file)) {
             unlink($file);

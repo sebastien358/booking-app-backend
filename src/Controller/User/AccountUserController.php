@@ -74,7 +74,10 @@ class AccountUserController extends AbstractController
             }
 
             if (!empty($plainPassword)) {
-                $hashed = $this->passwordHasher->hashPassword($user, $plainPassword);
+                $hashed = $this->passwordHasher->hashPassword(
+                    $user,
+                    $plainPassword
+                );
                 $user->setPassword($hashed);
             }
 

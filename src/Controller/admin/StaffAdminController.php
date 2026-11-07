@@ -78,9 +78,9 @@ class StaffAdminController extends AbstractController
                 return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
             }
 
-            $search = trim($request->query->getString('search'));
+            $search = trim($request->query->getString('search')) ?? null;
             if (empty($search)) {
-                return $this->json(['error' => 'Les données ne sont pas valides'], Response::HTTP_NOT_FOUND);
+                return $this->json(['error' => 'Les données ne sont pas valides'], Response::HTTP_BAD_REQUEST);
             }
 
             $staffs = $this->entityManager->getRepository(Staff::class)->findAllSearchAdmin($search);
@@ -115,7 +115,6 @@ class StaffAdminController extends AbstractController
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
         }
     }
-
 
     #[Route('/toggle/{id}', methods: ['POST'])]
     public function toggle(int $id, Request $request, SerializerInterface $serializer): Response
@@ -176,8 +175,43 @@ class StaffAdminController extends AbstractController
         }
     }
 
+    #[Route('/edit/{id}', methods: ['POST'])]
+    public function edit(int $id, Request $request): JsonResponse
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['message' => 'User not found'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $staff = $this->entityManager->getRepository(Staff::class)->find($id);
+            if (!$staff) {
+                return $this->json(['error' => 'Salarié introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $form = $this->createForm(StaffType::class, $staff);
+            $data = $request->request->all();
+            $form->submit($data, false);
+
+            if (!$form->isSubmitted() && !$form->isValid()) {
+                $errors = $this->getErrorMessages($form);
+                return $this->json(['error' => $errors], Response::HTTP_BAD_REQUEST);
+            }
+
+            $image = $request->files->get('picture') ?? null;
+            $this->staffService->staffImage($staff, $image);
+
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'Un employé a été ajouté'], Response::HTTP_CREATED);
+        } catch(\Throwable $e) {
+            $this->logger->error('Erreur de l\'ajout d\'un salarié : ', [$e->getMessage()]);
+            return new JsonResponse(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
     #[Route('/delete/{id}', methods: ['DELETE'])]
-    public function delete(int $id, Request $request, SerializerInterface $serializer): Response
+    public function delete(int $id, Request $request): Response
     {
         try {
             $user = $this->getUser();
@@ -197,6 +231,32 @@ class StaffAdminController extends AbstractController
             $this->entityManager->flush();
 
             return $this->json(['message' => 'Le salarié a été supprimé'], Response::HTTP_OK);
+        } catch (\Throwable $e) {
+            $this->logger->error('Erreur de la récupération d\'un salarié', [$e->getMessage()]);
+            return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    #[Route('/delete/{id}/image', methods: ['DELETE'])]
+    public function image(int $id): Response
+    {
+        try {
+            $user = $this->getUser();
+            if (!$user) {
+                return $this->json(['error' => 'Utilisateur introuvable'], Response::HTTP_UNAUTHORIZED);
+            }
+
+            $staff = $this->entityManager->getRepository(Staff::class)->find($id);
+            if (!$staff) {
+                return $this->json(['error' => 'Salarié introuvable'], Response::HTTP_NOT_FOUND);
+            }
+
+            $image = $staff->getPicture();
+            $this->uploadFileService->staffDeleteImage($image);
+
+            $this->entityManager->flush();
+
+            return $this->json(['message' => 'L\'image du salarrié a été supprimé'], Response::HTTP_OK);
         } catch (\Throwable $e) {
             $this->logger->error('Erreur de la récupération d\'un salarié', [$e->getMessage()]);
             return $this->json(['error' => $e->getMessage()], Response::HTTP_INTERNAL_SERVER_ERROR);

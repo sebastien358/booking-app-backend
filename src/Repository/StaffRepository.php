@@ -30,6 +30,7 @@ class StaffRepository extends ServiceEntityRepository
         return $this->createQueryBuilder('staff')
             ->andWhere('staff.is_active = :active')
             ->setParameter('active', true)
+            ->orderBy('staff.id', 'ASC')
             ->getQuery()
             ->getResult();
     }
